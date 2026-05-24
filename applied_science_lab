@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScienceLab — Interactive Simulations</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: rgba(99,179,237,0.15);
+    --accent: #38bdf8;
+    --accent2: #a78bfa;
+    --accent3: #34d399;
+    --accent4: #f59e0b;
+    --accent5: #f87171;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,14,26,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem; display: flex; align-items: center; gap: 1rem; height: 56px;
+  }
+  .logo { font-size: 1.2rem; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; flex-shrink: 0; }
+  .logo span { color: var(--accent3); }
+  .nav-tabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; padding: 4px 0; }
+  .nav-tabs::-webkit-scrollbar { height: 2px; }
+  .nav-tabs::-webkit-scrollbar-thumb { background: var(--accent); }
+  .tab-btn {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid transparent;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-family: var(--font); font-size: 13px; font-weight: 500;
+    white-space: nowrap; transition: all 0.2s;
+  }
+  .tab-btn:hover { color: var(--text); border-color: var(--border); background: var(--surface); }
+  .tab-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(56,189,248,0.08); }
+
+  /* MAIN LAYOUT */
+  main { display: flex; min-height: calc(100vh - 56px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px; flex-shrink: 0; border-right: 1px solid var(--border);
+    padding: 1.5rem 0; background: var(--surface);
+    overflow-y: auto; position: sticky; top: 56px; height: calc(100vh - 56px);
+  }
+  .sidebar-section { padding: 0 1rem 1rem; }
+  .sidebar-label { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; padding: 0 4px; }
+  .sim-btn {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 8px 8px; border-radius: 6px; border: none;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-family: var(--font); font-size: 13px; text-align: left;
+    transition: all 0.15s;
+  }
+  .sim-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .sim-btn:hover { color: var(--text); background: var(--surface2); }
+  .sim-btn.active { color: var(--accent); background: rgba(56,189,248,0.1); font-weight: 600; }
+  .sim-btn.active .dot { background: var(--accent); }
+
+  /* CONTENT */
+  .content { flex: 1; padding: 2rem; overflow: hidden; }
+  .sim-panel { display: none; }
+  .sim-panel.active { display: block; }
+
+  .sim-header { margin-bottom: 1.5rem; }
+  .sim-title { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+  .sim-sub { font-size: 14px; color: var(--muted); margin-top: 4px; }
+
+  .sim-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+  .sim-grid.wide { grid-template-columns: 1fr; }
+
+  /* CANVAS AREA */
+  .canvas-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; position: relative;
+  }
+  canvas { display: block; width: 100%; }
+
+  /* CONTROLS */
+  .controls-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .control-group { margin-bottom: 1rem; }
+  .control-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .control-label span { color: var(--accent); font-family: var(--mono); font-size: 11px; }
+  input[type=range] {
+    width: 100%; height: 4px; border-radius: 2px;
+    background: var(--surface2); appearance: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg); cursor: pointer;
+  }
+  .ctrl-btn {
+    width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer;
+    font-family: var(--font); font-size: 13px; font-weight: 600;
+    transition: all 0.2s; margin-top: 4px;
+  }
+  .ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .ctrl-btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+  .ctrl-btn.primary:hover { opacity: 0.9; }
+  .ctrl-btn.danger { border-color: var(--accent5); color: var(--accent5); }
+
+  .info-card {
+    background: var(--surface2); border-radius: 8px; padding: 1rem;
+    font-size: 13px; line-height: 1.6; color: var(--muted); margin-top: 1rem;
+  }
+  .info-card strong { color: var(--accent3); }
+  .formula {
+    background: var(--bg); border-radius: 6px; padding: 8px 12px;
+    font-family: var(--mono); font-size: 14px; color: var(--accent4);
+    text-align: center; margin: 8px 0;
+  }
+  .readout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;
+  }
+  .readout-item { background: var(--bg); border-radius: 6px; padding: 8px; text-align: center; }
+  .readout-val { font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--accent); }
+  .readout-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* HOME SCREEN */
+  .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+  .home-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.25rem; cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .home-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .home-card-icon { font-size: 2rem; }
+  .home-card-title { font-size: 15px; font-weight: 600; }
+  .home-card-sub { font-size: 12px; color: var(--muted); }
+  .home-card-tag { align-self: flex-start; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tag-phy { background: rgba(56,189,248,0.15); color: var(--accent); }
+  .tag-che { background: rgba(167,139,250,0.15); color: var(--accent2); }
+  .tag-bio { background: rgba(52,211,153,0.15); color: var(--accent3); }
+
+  .section-title { font-size: 1.1rem; font-weight: 700; margin: 1.5rem 0 1rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* Notification */
+  .notif {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: var(--surface2); border: 1px solid var(--accent3); border-radius: 10px;
+    padding: 12px 20px; font-size: 13px; color: var(--accent3); font-weight: 600;
+    transform: translateY(100px); opacity: 0; transition: all 0.3s;
+    pointer-events: none;
+  }
+  .notif.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Science<span>Lab</span></div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="showHome()">🏠 Home</button>
+    <button class="tab-btn" onclick="loadSim('buoyancy')">⚗ Buoyancy</button>
+    <button class="tab-btn" onclick="loadSim('circuit')">⚡ Circuits</button>
+    <button class="tab-btn" onclick="loadSim('pressure')">💨 Pressure</button>
+    <button class="tab-btn" onclick="loadSim('sound')">🎵 Sound Waves</button>
+    <button class="tab-btn" onclick="loadSim('optics')">🔦 Optics</button>
+    <button class="tab-btn" onclick="loadSim('heart')">❤ Heart</button>
+    <button class="tab-btn" onclick="loadSim('acids')">🧪 Acids & Bases</button>
+    <button class="tab-btn" onclick="loadSim('pendulum')">🌀 Pendulum</button>
+    <button class="tab-btn" onclick="loadSim('projectile')">🚀 Projectile</button>
+  </div>
+</nav>
+
+<main>
+  <aside class="sidebar" id="sidebar" style="display:none">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Physics</div>
+      <button class="sim-btn" onclick="loadSim('buoyancy')"><span class="dot"></span>Buoyancy & Density</button>
+      <button class="sim-btn" onclick="loadSim('circuit')"><span class="dot"></span>Electric Circuits</button>
+      <button class="sim-btn" onclick="loadSim('pressure')"><span class="dot"></span>Air Pressure</button>
+      <button class="sim-btn" onclick="loadSim('sound')"><span class="dot"></span>Sound Waves</button>
+      <button class="sim-btn" onclick="loadSim('optics')"><span class="dot"></span>Light & Refraction</button>
+      <button class="sim-btn" onclick="loadSim('pendulum')"><span class="dot"></span>Pendulum</button>
+      <button class="sim-btn" onclick="loadSim('projectile')"><span class="dot"></span>Projectile Motion</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Biology</div>
+      <button class="sim-btn" onclick="loadSim('heart')"><span class="dot"></span>Heart & Circulation</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Chemistry</div>
+      <button class="sim-btn" onclick="loadSim('acids')"><span class="dot"></span>Acids & Bases</button>
+    </div>
+  </aside>
+
+  <div class="content" id="content-area">
+    <!-- HOME -->
+    <div id="panel-home" class="sim-panel active">
+      <h1 style="font-size:2rem;font-weight:700;margin-bottom:4px">Welcome to ScienceLab 🔬</h1>
+      <p style="color:var(--muted);font-size:15px;margin-bottom:2rem">Interactive simulations for Class 8–10. Learn by doing, not by memorising.</p>
+
+      <div class="section-title" style="color:var(--accent)">⚛ Physics</div>
+      <div class="home-grid">
+        <div class="home-card" onclick="loadSim('buoyancy')">
+          <div class="home-card-icon">🚢</div>
+          <div class="home-card-title">Buoyancy & Density</div>
+          <div class="home-card-sub">Why ships float? Adjust density & see objects rise/sink</div>
+          <div class="home-card-tag tag-phy">Physics</div>
+        </div>
+        <div class="home-card" onclick="loadSim('circuit')">
+          <div class="home-card-icon">⚡</div>
+          <div class="home-card-title">Electric Circuits</div>
+          <div class="home-card-sub">Build series & parallel circuits, measure V, I, R live</div>
+          <div class="home-card-tag tag-phy">Physics</div>
+        </div>
+        <div class="home-card" onclick="loadSim('pressure')">
+          <div class="home-card-icon">💨</div>
+          <div class="home-card-title">Air Pressure</div>
+          <div class="home-card-sub">Atmosphere pressure: feel the tons of air above us</div>
+          <div class="home-card-tag tag-phy">Physics</div>
+        </div>
+        <div class="home-card" onclick="loadSim('sound')">
+          <div class="home-card-icon">🎵</div>
+          <div class="home-card-title">Sound Waves</div>
+          <div class="home-card-sub">Visualise frequency & amplitude. How we hear things</div>
+          <div class="home-card-tag tag-phy">Physics</div>
+        </div>
+        <div class="home-card" onclick="loadSim('optics')">
+          <div class="home-card-icon">🔦</div>
+          <div class="home-card-title">Light & Refraction</div>
+          <div class="home-card-sub">Snell's law live: watch light bend through glass & water</div>
+          <div class="home-card-tag tag-phy">Physics</div>
+        </div>
+        <div class="home-card" onclick="loadSim('pendulum')">
+          <div class="home-card-icon">🌀</div>
+          <div class="home-card-title">Pendulum Motion</div>
+          <div class="home-card-sub">Change length & mass. Discover what affects period</div>
+          <div class="home-card-tag tag-phy">Physics</div>
+        </div>
+        <div class="home-card" onclick="loadSim('projectile')">
+          <div class="home-card-icon">🚀</div>
+          <div class="home-card-title">Projectile Motion</div>
+          <div class="home-card-sub">Launch at any angle. See parabolic path and range</div>
+          <div class="home-card-tag tag-phy">Physics</div>
+        </div>
+      </div>
+
+      <div class="section-title" style="color:var(--accent3)">🌿 Biology</div>
+      <div class="home-grid">
+        <div class="home-card" onclick="loadSim('heart')">
+          <div class="home-card-icon">❤️</div>
+          <div class="home-card-title">Heart & Circulation</div>
+          <div class="home-card-sub">Beating heart animation. See blood flow through chambers</div>
+          <div class="home-card-tag tag-bio">Biology</div>
+        </div>
+      </div>
+
+      <div class="section-title" style="color:var(--accent2)">🧪 Chemistry</div>
+      <div class="home-grid">
+        <div class="home-card" onclick="loadSim('acids')">
+          <div class="home-card-icon">🧪</div>
+          <div class="home-card-title">Acids & Bases</div>
+          <div class="home-card-sub">Mix solutions. Watch pH indicator colour change live</div>
+          <div class="home-card-tag tag-che">Chemistry</div>
+        </div>
+      </div>
+
+      <div style="margin-top:2.5rem;padding:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">
+          💡 <strong style="color:var(--accent4)">Tip:</strong> Every simulation has <strong style="color:var(--text)">adjustable controls</strong>. Change values and watch the science happen in real time. Try to <em>predict</em> what will happen before you move the slider!
+        </p>
+      </div>
+    </div>
+
+    <!-- BUOYANCY -->
+    <div id="panel-buoyancy" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">🚢 Buoyancy & Density</div>
+        <div class="sim-sub">Why do ships float but a coin sinks? Change the object's density and watch it move.</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="buoyancy-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Object Density <span id="obj-density-val">500</span> kg/m³</div>
+              <input type="range" id="obj-density" min="100" max="2000" value="500">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Fluid Density <span id="fluid-density-val">1000</span> kg/m³</div>
+              <input type="range" id="fluid-density" min="500" max="1500" value="1000">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Object Shape</div>
+              <select id="obj-shape" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:var(--font)">
+                <option value="cube">Cube / Block</option>
+                <option value="sphere">Sphere</option>
+                <option value="boat">Hollow Boat</option>
+              </select>
+            </div>
+            <div class="formula">ρ = m/V &nbsp;|&nbsp; F_b = ρ_f × V × g</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="b-buoyant">—</div><div class="readout-lbl">Buoyant Force</div></div>
+              <div class="readout-item"><div class="readout-val" id="b-status">—</div><div class="readout-lbl">Status</div></div>
+            </div>
+            <div class="info-card">
+              <strong>Real-world connections:</strong><br>
+              Ships float because they displace more water than their weight. Submarines control depth by pumping water in/out of ballast tanks. Hot air balloons — warm air is less dense!
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CIRCUIT -->
+    <div id="panel-circuit" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">⚡ Electric Circuits — Ohm's Law</div>
+        <div class="sim-sub">Adjust voltage and resistance. See current change live. Switch between series and parallel.</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="circuit-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Voltage (V) <span id="volt-val">9</span> V</div>
+              <input type="range" id="voltage" min="1" max="24" value="9">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Resistance R1 <span id="r1-val">100</span> Ω</div>
+              <input type="range" id="r1" min="10" max="500" value="100">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Resistance R2 <span id="r2-val">100</span> Ω</div>
+              <input type="range" id="r2" min="10" max="500" value="100">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Circuit Type</div>
+              <div style="display:flex;gap:8px">
+                <button class="ctrl-btn primary" id="btn-series" onclick="setCircuit('series')">Series</button>
+                <button class="ctrl-btn" id="btn-parallel" onclick="setCircuit('parallel')">Parallel</button>
+              </div>
+            </div>
+            <div class="formula">V = I × R &nbsp;|&nbsp; P = V × I</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="c-current">—</div><div class="readout-lbl">Current (mA)</div></div>
+              <div class="readout-item"><div class="readout-val" id="c-power">—</div><div class="readout-lbl">Power (mW)</div></div>
+              <div class="readout-item"><div class="readout-val" id="c-rtotal">—</div><div class="readout-lbl">R_total (Ω)</div></div>
+              <div class="readout-item"><div class="readout-val" id="c-bright">—</div><div class="readout-lbl">Bulb Brightness</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESSURE -->
+    <div id="panel-pressure" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">💨 Air Pressure</div>
+        <div class="sim-sub">We live under massive air pressure! Explore pressure at different altitudes.</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="pressure-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Altitude <span id="alt-val">0</span> km</div>
+              <input type="range" id="altitude" min="0" max="50" value="0">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Temperature <span id="temp-val">25</span> °C</div>
+              <input type="range" id="temperature" min="-60" max="50" value="25">
+            </div>
+            <div class="formula">P = F/A &nbsp;|&nbsp; P ≈ 101.3 × e^(−h/8.5) kPa</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="p-pressure">101.3</div><div class="readout-lbl">Pressure (kPa)</div></div>
+              <div class="readout-item"><div class="readout-val" id="p-atm">1.00</div><div class="readout-lbl">Atmospheres</div></div>
+              <div class="readout-item"><div class="readout-val" id="p-force">10.3</div><div class="readout-lbl">Force/cm² (N)</div></div>
+              <div class="readout-item"><div class="readout-val" id="p-density">1.225</div><div class="readout-lbl">Air Density (kg/m³)</div></div>
+            </div>
+            <div class="info-card">
+              <strong>WOW Fact:</strong><br>
+              At sea level, ~10 tonnes of air press down on every square metre of your body. Your body pushes back equally — that's why you don't collapse!
+            </div>
+            <button class="ctrl-btn" onclick="showNotif('🌋 Mt. Everest (8.8 km): ~31 kPa — only 31% of sea level pressure!')">📍 Everest Pressure</button>
+            <button class="ctrl-btn" onclick="showNotif('✈️ Aircraft cabin: maintained at ~75 kPa ≈ 2.4 km altitude')">✈️ Aircraft Cabin</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOUND -->
+    <div id="panel-sound" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">🎵 Sound Waves</div>
+        <div class="sim-sub">Sound is a pressure wave. Change frequency (pitch) and amplitude (loudness).</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="sound-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Frequency <span id="freq-val">440</span> Hz</div>
+              <input type="range" id="frequency" min="20" max="2000" value="440">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Amplitude <span id="amp-val">50</span>%</div>
+              <input type="range" id="amplitude" min="5" max="100" value="50">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Wave Type</div>
+              <select id="wave-type" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:var(--font)">
+                <option value="sine">Sine Wave (Pure tone)</option>
+                <option value="square">Square Wave (Buzzer)</option>
+                <option value="sawtooth">Sawtooth (Rich sound)</option>
+              </select>
+            </div>
+            <button class="ctrl-btn primary" id="play-sound-btn" onclick="toggleSound()">▶ Play Sound</button>
+            <div class="formula">v = f × λ &nbsp;|&nbsp; v_sound = 343 m/s</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="s-wavelength">—</div><div class="readout-lbl">Wavelength (cm)</div></div>
+              <div class="readout-item"><div class="readout-val" id="s-period">—</div><div class="readout-lbl">Period (ms)</div></div>
+            </div>
+            <div class="info-card">
+              <strong>SONAR & Ultrasound:</strong><br>
+              Bats use 20,000–100,000 Hz (ultrasound) to navigate. Doctors use ultrasound at ~2–18 MHz to see inside bodies!
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTICS -->
+    <div id="panel-optics" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">🔦 Light & Refraction</div>
+        <div class="sim-sub">Snell's Law in action. Watch light bend as it crosses from air into glass or water.</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="optics-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Incident Angle <span id="inc-val">45</span>°</div>
+              <input type="range" id="incident" min="1" max="89" value="45">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Medium</div>
+              <select id="medium" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:var(--font)">
+                <option value="1.33">Water (n = 1.33)</option>
+                <option value="1.5">Glass (n = 1.50)</option>
+                <option value="2.42">Diamond (n = 2.42)</option>
+                <option value="1.0003">Air (n ≈ 1.00)</option>
+              </select>
+            </div>
+            <div class="formula">n₁ sin θ₁ = n₂ sin θ₂</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="o-refracted">—</div><div class="readout-lbl">Refracted Angle</div></div>
+              <div class="readout-item"><div class="readout-val" id="o-tir">No</div><div class="readout-lbl">Total Int. Reflection</div></div>
+            </div>
+            <div class="info-card">
+              <strong>Fiber Optics:</strong><br>
+              Internet data travels as light inside glass fibers using Total Internal Reflection — bouncing millions of times per second!
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HEART -->
+    <div id="panel-heart" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">❤️ Heart & Blood Circulation</div>
+        <div class="sim-sub">Your heart beats ~100,000 times a day. See how blood flows through the four chambers.</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="heart-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Heart Rate <span id="hr-val">72</span> BPM</div>
+              <input type="range" id="heart-rate" min="40" max="200" value="72">
+            </div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="h-bpm">72</div><div class="readout-lbl">BPM</div></div>
+              <div class="readout-item"><div class="readout-val" id="h-daily">103,680</div><div class="readout-lbl">Beats/Day</div></div>
+              <div class="readout-item"><div class="readout-val" id="h-period">833</div><div class="readout-lbl">Period (ms)</div></div>
+              <div class="readout-item"><div class="readout-val" id="h-status">Normal</div><div class="readout-lbl">Status</div></div>
+            </div>
+            <div class="info-card">
+              <strong>Four Chambers:</strong><br>
+              • <strong style="color:#f87171">Right Atrium</strong> → receives deoxygenated blood<br>
+              • <strong style="color:#f87171">Right Ventricle</strong> → pumps to lungs<br>
+              • <strong style="color:#f87171">Left Atrium</strong> → receives oxygenated blood<br>
+              • <strong style="color:#f87171">Left Ventricle</strong> → pumps to body<br><br>
+              <strong>WOW:</strong> Heart pumps ~5 litres of blood every minute!
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACIDS -->
+    <div id="panel-acids" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">🧪 Acids & Bases — pH Scale</div>
+        <div class="sim-sub">Mix acids and bases. Watch the indicator colour change from red (acid) → green (neutral) → blue (base).</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="acids-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Add Acid (HCl) <span id="acid-val">50</span> mL</div>
+              <input type="range" id="acid-amount" min="0" max="100" value="50">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Add Base (NaOH) <span id="base-val">50</span> mL</div>
+              <input type="range" id="base-amount" min="0" max="100" value="50">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Indicator</div>
+              <select id="indicator" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:var(--font)">
+                <option value="litmus">Litmus</option>
+                <option value="turmeric">Turmeric</option>
+                <option value="phenol">Phenolphthalein</option>
+              </select>
+            </div>
+            <div class="formula">pH = −log[H⁺]</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="a-ph">7.0</div><div class="readout-lbl">pH Value</div></div>
+              <div class="readout-item"><div class="readout-val" id="a-type">Neutral</div><div class="readout-lbl">Solution Type</div></div>
+            </div>
+            <div class="info-card">
+              <strong>Real life pH:</strong><br>
+              Lemon juice: 2 • Vinegar: 3 • Water: 7 • Blood: 7.4 • Baking soda: 9 • Bleach: 12
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PENDULUM -->
+    <div id="panel-pendulum" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">🌀 Simple Pendulum</div>
+        <div class="sim-sub">Does mass affect period? Does length? Discover the law of pendulums.</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="pendulum-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Length <span id="plen-val">100</span> cm</div>
+              <input type="range" id="pend-length" min="10" max="200" value="100">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Mass <span id="pmass-val">500</span> g</div>
+              <input type="range" id="pend-mass" min="50" max="2000" value="500">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Starting Angle <span id="pangle-val">30</span>°</div>
+              <input type="range" id="pend-angle" min="5" max="80" value="30">
+            </div>
+            <div class="formula">T = 2π √(L/g)</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="p-period2">2.0</div><div class="readout-lbl">Period (s)</div></div>
+              <div class="readout-item"><div class="readout-val" id="p-freq2">0.5</div><div class="readout-lbl">Frequency (Hz)</div></div>
+            </div>
+            <div class="info-card">
+              <strong>Discovery:</strong><br>
+              Galileo noticed pendulum period depends ONLY on length, not mass! This was revolutionary. Pendulums were used in clocks for centuries.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECTILE -->
+    <div id="panel-projectile" class="sim-panel">
+      <div class="sim-header">
+        <div class="sim-title">🚀 Projectile Motion</div>
+        <div class="sim-sub">Launch at any angle. Gravity pulls it down while horizontal speed stays constant.</div>
+      </div>
+      <div class="sim-grid">
+        <div class="canvas-box">
+          <canvas id="projectile-canvas" height="420"></canvas>
+        </div>
+        <div>
+          <div class="controls-box">
+            <div class="control-group">
+              <div class="control-label">Launch Angle <span id="ang-val">45</span>°</div>
+              <input type="range" id="launch-angle" min="5" max="85" value="45">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Initial Speed <span id="spd-val">20</span> m/s</div>
+              <input type="range" id="launch-speed" min="5" max="50" value="20">
+            </div>
+            <div class="control-group">
+              <div class="control-label">Gravity <span id="grav-val">9.8</span> m/s²</div>
+              <input type="range" id="gravity" min="1" max="25" value="9.8" step="0.1">
+            </div>
+            <button class="ctrl-btn primary" onclick="launchProjectile()">🚀 Launch!</button>
+            <div class="formula">x = v₀cosθ·t &nbsp;|&nbsp; y = v₀sinθ·t − ½gt²</div>
+            <div class="readout">
+              <div class="readout-item"><div class="readout-val" id="pr-range">—</div><div class="readout-lbl">Range (m)</div></div>
+              <div class="readout-item"><div class="readout-val" id="pr-height">—</div><div class="readout-lbl">Max Height (m)</div></div>
+              <div class="readout-item"><div class="readout-val" id="pr-time">—</div><div class="readout-lbl">Flight Time (s)</div></div>
+              <div class="readout-item"><div class="readout-val" id="pr-vx">—</div><div class="readout-lbl">Vx (m/s)</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content-area -->
+</main>
+
+<div class="notif" id="notif"></div>
+
+<script>
+// ===================== NAVIGATION =====================
+let currentSim = null;
+let animationFrames = {};
+let audioCtx = null;
+let soundSource = null;
+
+function showHome() {
+  document.getElementById('sidebar').style.display = 'none';
+  document.querySelectorAll('.sim-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-home').classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{ if(i===0) b.classList.add('active'); else b.classList.remove('active'); });
+  stopCurrentSim();
+  currentSim = null;
+}
+
+function loadSim(name) {
+  stopCurrentSim();
+  document.getElementById('sidebar').style.display = 'block';
+  document.querySelectorAll('.sim-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelectorAll('.sim-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  currentSim = name;
+  setTimeout(()=>{ startSim(name); }, 50);
+}
+
+function stopCurrentSim() {
+  Object.values(animationFrames).forEach(id => cancelAnimationFrame(id));
+  animationFrames = {};
+  if(soundSource){ try{ soundSource.stop(); }catch(e){} soundSource=null; }
+  let btn = document.getElementById('play-sound-btn');
+  if(btn) btn.textContent = '▶ Play Sound';
+}
+
+function startSim(name) {
+  const fns = { buoyancy: initBuoyancy, circuit: initCircuit, pressure: initPressure,
+    sound: initSound, optics: initOptics, heart: initHeart, acids: initAcids,
+    pendulum: initPendulum, projectile: initProjectile };
+  if(fns[name]) fns[name]();
+}
+
+function showNotif(msg) {
+  let n = document.getElementById('notif');
+  n.textContent = msg;
+  n.classList.add('show');
+  setTimeout(()=> n.classList.remove('show'), 3500);
+}
+
+// ===================== BUOYANCY =====================
+function initBuoyancy() {
+  const canvas = document.getElementById('buoyancy-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+
+  let objDen = 500, fluidDen = 1000, shape = 'cube';
+  let objY = 0, targetY = 0, velY = 0;
+
+  function getTargetY() {
+    const ratio = objDen / fluidDen;
+    const fluidSurface = H * 0.45;
+    const fluidBottom = H - 40;
+    const fluidH = fluidBottom - fluidSurface;
+    const objSize = 60;
+    if(shape === 'boat') return fluidSurface - objSize * 0.15;
+    if(ratio < 1) { // floats
+      const submerged = ratio;
+      return fluidSurface - objSize * (1 - submerged);
+    } else { // sinks
+      return fluidBottom - objSize;
+    }
+  }
+
+  function update() {
+    objDen = +document.getElementById('obj-density').value;
+    fluidDen = +document.getElementById('fluid-density').value;
+    shape = document.getElementById('obj-shape').value;
+    document.getElementById('obj-density-val').textContent = objDen;
+    document.getElementById('fluid-density-val').textContent = fluidDen;
+
+    targetY = getTargetY();
+    velY += (targetY - objY) * 0.08;
+    velY *= 0.8;
+    objY += velY;
+
+    const ratio = shape==='boat'? 0.5 : objDen/fluidDen;
+    const Fb = (Math.min(ratio,1) * fluidDen * 0.001 * 9.8).toFixed(2);
+    document.getElementById('b-buoyant').textContent = Fb + ' N';
+    document.getElementById('b-status').textContent = ratio <= 1 ? (ratio < 0.98 ? 'Floating' : 'Neutral') : 'Sinking';
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    const fluidY = H * 0.45;
+
+    // Background
+    ctx.fillStyle = '#0a0e1a';
+    ctx.fillRect(0,0,W,H);
+
+    // Container walls
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(40, 30, W-80, H-60);
+
+    // Fluid gradient
+    const grad = ctx.createLinearGradient(0, fluidY, 0, H-30);
+    if(fluidDen > 1100) { grad.addColorStop(0,'rgba(148,163,250,0.35)'); grad.addColorStop(1,'rgba(99,102,241,0.5)'); }
+    else { grad.addColorStop(0,'rgba(56,189,248,0.25)'); grad.addColorStop(1,'rgba(14,165,233,0.45)'); }
+    ctx.fillStyle = grad;
+    ctx.fillRect(40, fluidY, W-80, H-30-fluidY);
+
+    // Fluid surface line
+    ctx.strokeStyle = 'rgba(56,189,248,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8,4]);
+    ctx.beginPath(); ctx.moveTo(40,fluidY); ctx.lineTo(W-40,fluidY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Labels
+    ctx.fillStyle = 'rgba(56,189,248,0.7)';
+    ctx.font = '11px JetBrains Mono';
+    ctx.fillText('Air  (ρ ≈ 1.2 kg/m³)', 50, fluidY-8);
+    ctx.fillText('Fluid (ρ = '+fluidDen+' kg/m³)', 50, fluidY+20);
+
+    // Object
+    const objSize = 60;
+    const cx = W/2;
+    const ratio = shape==='boat'? 0.5 : objDen/fluidDen;
+    const isFloat = ratio <= 1;
+    const col = isFloat ? '#34d399' : '#f87171';
+
+    ctx.save();
+    if(shape === 'cube') {
+      ctx.fillStyle = col+'88';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(cx-objSize/2, objY, objSize, objSize, 4);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.font = 'bold 11px Space Grotesk';
+      ctx.textAlign = 'center';
+      ctx.fillText('ρ='+objDen, cx, objY+objSize/2+4);
+    } else if(shape === 'sphere') {
+      ctx.fillStyle = col+'88';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, objY+objSize/2, objSize/2, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.font = 'bold 11px Space Grotesk';
+      ctx.textAlign = 'center';
+      ctx.fillText('ρ='+objDen, cx, objY+objSize/2+4);
+    } else { // boat
+      ctx.fillStyle = col+'88';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx-40, objY);
+      ctx.lineTo(cx+40, objY);
+      ctx.lineTo(cx+30, objY+30);
+      ctx.lineTo(cx-30, objY+30);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.font = 'bold 11px Space Grotesk';
+      ctx.textAlign = 'center';
+      ctx.fillText('BOAT', cx, objY+18);
+    }
+    ctx.restore();
+
+    // Arrows
+    if(Math.abs(velY) > 0.2) {
+      const vy = velY > 0 ? 1 : -1;
+      ctx.strokeStyle = vy > 0 ? '#f87171' : '#34d399';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx+50, objY+30);
+      ctx.lineTo(cx+50, objY+30+vy*30);
+      ctx.stroke();
+      ctx.fillStyle = vy > 0 ? '#f87171' : '#34d399';
+      ctx.beginPath();
+      ctx.moveTo(cx+50, objY+30+vy*35);
+      ctx.lineTo(cx+44, objY+30+vy*25);
+      ctx.lineTo(cx+56, objY+30+vy*25);
+      ctx.fill();
+    }
+
+    ctx.textAlign = 'left';
+  }
+
+  objY = getTargetY();
+
+  function loop() {
+    update(); draw();
+    animationFrames['buoyancy'] = requestAnimationFrame(loop);
+  }
+  loop();
+
+  ['obj-density','fluid-density','obj-shape'].forEach(id => {
+    document.getElementById(id).addEventListener('change', ()=>{ objY = getTargetY(); });
+  });
+}
+
+// ===================== CIRCUIT =====================
+let circuitType = 'series';
+function setCircuit(type) {
+  circuitType = type;
+  document.getElementById('btn-series').className = 'ctrl-btn' + (type==='series'?' primary':'');
+  document.getElementById('btn-parallel').className = 'ctrl-btn' + (type==='parallel'?' primary':'');
+}
+
+function initCircuit() {
+  const canvas = document.getElementById('circuit-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let t = 0;
+
+  function loop() {
+    const V = +document.getElementById('voltage').value;
+    const R1 = +document.getElementById('r1').value;
+    const R2 = +document.getElementById('r2').value;
+    document.getElementById('volt-val').textContent = V;
+    document.getElementById('r1-val').textContent = R1;
+    document.getElementById('r2-val').textContent = R2;
+
+    let Rt, I, I1, I2;
+    if(circuitType === 'series') {
+      Rt = R1 + R2;
+      I = V / Rt * 1000;
+      I1 = I; I2 = I;
+    } else {
+      Rt = (R1*R2)/(R1+R2);
+      I = V / Rt * 1000;
+      I1 = V/R1*1000; I2 = V/R2*1000;
+    }
+    const P = (V * I).toFixed(1);
+    const bright = Math.min(100, Math.round(I/5));
+
+    document.getElementById('c-current').textContent = I.toFixed(1);
+    document.getElementById('c-power').textContent = P;
+    document.getElementById('c-rtotal').textContent = Rt.toFixed(1);
+    document.getElementById('c-bright').textContent = bright+'%';
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a';
+    ctx.fillRect(0,0,W,H);
+    t += 0.04;
+
+    drawCircuitDiagram(ctx, W, H, V, R1, R2, I, I1, I2, bright, t, circuitType);
+    animationFrames['circuit'] = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function drawCircuitDiagram(ctx, W, H, V, R1, R2, I, I1, I2, bright, t, type) {
+  const cx = W/2, cy = H/2;
+  const brightCol = `rgba(251,191,36,${0.3+bright/200})`;
+
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1.5;
+
+  if(type === 'series') {
+    // Draw series circuit path
+    const pts = [[80,80],[W-80,80],[W-80,340],[80,340]];
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(80,80);
+    ctx.lineTo(W-80,80);
+    ctx.lineTo(W-80,340);
+    ctx.lineTo(80,340);
+    ctx.lineTo(80,80);
+    ctx.stroke();
+
+    // Battery
+    drawBattery(ctx, 80, cy, V);
+    // R1
+    drawResistor(ctx, cx-60, 80, 'R1='+R1+'Ω', R1, true);
+    // R2
+    drawResistor(ctx, cx+60, 80, 'R2='+R2+'Ω', R2, true);
+    // Bulbs
+    drawBulb(ctx, W-80, cy, bright, brightCol);
+
+    // Animated electrons
+    const path = [[80,80],[W-80,80],[W-80,340],[80,340],[80,80]];
+    for(let e=0; e<6; e++) {
+      const prog = ((t*0.5 + e/6) % 1);
+      const pos = getPathPos(path, prog);
+      ctx.fillStyle = `rgba(56,189,248,${0.8-e*0.05})`;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 4, 0, Math.PI*2);
+      ctx.fill();
+    }
+  } else {
+    // Parallel
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
+    // Main rails
+    ctx.beginPath();
+    ctx.moveTo(80,80); ctx.lineTo(W-80,80);
+    ctx.moveTo(80,340); ctx.lineTo(W-80,340);
+    ctx.moveTo(80,80); ctx.lineTo(80,340);
+    ctx.moveTo(W-80,80); ctx.lineTo(W-80,340);
+    // Parallel branches
+    ctx.moveTo(cx-30,80); ctx.lineTo(cx-30,340);
+    ctx.moveTo(cx+30,80); ctx.lineTo(cx+30,340);
+    ctx.stroke();
+
+    drawBattery(ctx, 80, cy, V);
+    drawResistor(ctx, cx-30, cy-30, 'R1', R1, false);
+    drawResistor(ctx, cx+30, cy-30, 'R2', R2, false);
+    drawBulb(ctx, W-80, cy, bright, brightCol);
+
+    // Electrons
+    for(let e=0; e<8; e++) {
+      const prog = ((t*0.5 + e/8) % 1);
+      let x, y;
+      if(prog < 0.25) { x=80+( W-160)*prog*4; y=80; }
+      else if(prog < 0.5) { x=W-80; y=80+(340-80)*(prog-0.25)*4; }
+      else if(prog < 0.75) { x=W-80-(W-160)*(prog-0.5)*4; y=340; }
+      else { x=80; y=340-(340-80)*(prog-0.75)*4; }
+      ctx.fillStyle = 'rgba(56,189,248,0.7)';
+      ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // Labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '12px Space Grotesk';
+  ctx.textAlign = 'center';
+  ctx.fillText(type.charAt(0).toUpperCase()+type.slice(1)+' Circuit', cx, 30);
+  ctx.fillText('V = '+V+' V', cx, H-15);
+  ctx.fillText('I = '+I.toFixed(1)+' mA', cx, H-30);
+  ctx.textAlign = 'left';
+}
+
+function drawBattery(ctx, x, y, V) {
+  ctx.fillStyle = '#fbbf24'; ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+  ctx.fillRect(x-12, y-25, 24, 50);
+  ctx.strokeRect(x-12, y-25, 24, 50);
+  ctx.fillStyle = '#0a0e1a';
+  ctx.font = 'bold 10px Space Grotesk';
+  ctx.textAlign = 'center';
+  ctx.fillText(V+'V', x, y+4);
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = '14px Space Grotesk';
+  ctx.fillText('+', x, y-14);
+  ctx.fillText('−', x, y+22);
+}
+
+function drawResistor(ctx, x, y, label, val, horiz) {
+  const bw = 40, bh = 16;
+  ctx.fillStyle = '#a78bfa44'; ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x-bw/2, y-bh/2, bw, bh, 3);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#a78bfa';
+  ctx.font = '10px JetBrains Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x, y+4);
+}
+
+function drawBulb(ctx, x, y, bright, col) {
+  const r = 20;
+  ctx.fillStyle = col;
+  ctx.strokeStyle = `rgba(251,191,36,${0.5+bright/200})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = '9px Space Grotesk';
+  ctx.textAlign = 'center';
+  ctx.fillText(bright+'%', x, y+3);
+}
+
+function getPathPos(pts, prog) {
+  let totalLen = 0;
+  for(let i=0; i<pts.length-1; i++) totalLen += Math.hypot(pts[i+1][0]-pts[i][0], pts[i+1][1]-pts[i][1]);
+  let dist = prog * totalLen, cum = 0;
+  for(let i=0; i<pts.length-1; i++) {
+    const seg = Math.hypot(pts[i+1][0]-pts[i][0], pts[i+1][1]-pts[i][1]);
+    if(cum+seg >= dist) {
+      const t = (dist-cum)/seg;
+      return { x: pts[i][0]+(pts[i+1][0]-pts[i][0])*t, y: pts[i][1]+(pts[i+1][1]-pts[i][1])*t };
+    }
+    cum += seg;
+  }
+  return {x: pts[0][0], y: pts[0][1]};
+}
+
+// ===================== PRESSURE =====================
+function initPressure() {
+  const canvas = document.getElementById('pressure-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let t = 0;
+
+  function loop() {
+    const alt = +document.getElementById('altitude').value;
+    const temp = +document.getElementById('temperature').value;
+    document.getElementById('alt-val').textContent = alt;
+    document.getElementById('temp-val').textContent = temp;
+
+    const P = 101.325 * Math.exp(-alt/8.5);
+    const atm = P/101.325;
+    const force = (P*100/9.8).toFixed(1);
+    const dens = (1.225 * Math.exp(-alt/8.5) * 273/(273+temp)).toFixed(3);
+    document.getElementById('p-pressure').textContent = P.toFixed(1);
+    document.getElementById('p-atm').textContent = atm.toFixed(3);
+    document.getElementById('p-force').textContent = (P*0.1).toFixed(1);
+    document.getElementById('p-density').textContent = dens;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+    t += 0.02;
+
+    // Sky gradient
+    const skyRatio = Math.min(1, alt/50);
+    const r = Math.round(14 + skyRatio*(2-14));
+    const g = Math.round(18 + skyRatio*(2-18));
+    const b = Math.round(26 + skyRatio*(26-26));
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+
+    // Atmosphere layers
+    const layers = [
+      { name: 'Troposphere', min:0, max:12, col:'rgba(56,189,248,0.15)' },
+      { name: 'Stratosphere', min:12, max:50, col:'rgba(167,139,250,0.1)' },
+    ];
+
+    const scaleH = (h) => H - 40 - (h/55)*(H-80);
+
+    layers.forEach(l => {
+      ctx.fillStyle = l.col;
+      ctx.fillRect(40, scaleH(l.max), W-80, scaleH(l.min)-scaleH(l.max));
+      ctx.fillStyle = 'rgba(148,163,184,0.5)';
+      ctx.font = '11px Space Grotesk';
+      ctx.fillText(l.name, 50, scaleH((l.min+l.max)/2));
+    });
+
+    // Ground
+    ctx.fillStyle = '#166534';
+    ctx.fillRect(40, H-40, W-80, 20);
+    ctx.fillStyle = '#15803d';
+    ctx.fillRect(40, H-42, W-80, 4);
+
+    // Altitude indicator
+    const personY = scaleH(alt);
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath(); ctx.arc(W/2, personY, 8, 0, Math.PI*2); ctx.fill();
+    // Person stick figure
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(W/2, personY+8); ctx.lineTo(W/2, personY+25);
+    ctx.moveTo(W/2-8, personY+15); ctx.lineTo(W/2+8, personY+15);
+    ctx.moveTo(W/2, personY+25); ctx.lineTo(W/2-7, personY+38);
+    ctx.moveTo(W/2, personY+25); ctx.lineTo(W/2+7, personY+38);
+    ctx.stroke();
+
+    // Pressure bar
+    const barW = 24, barH = H-100;
+    const barX = W-70;
+    ctx.fillStyle = '#1e293b';
+    ctx.roundRect(barX, 40, barW, barH, 4);
+    ctx.fill();
+    const fillH = atm * barH;
+    const barGrad = ctx.createLinearGradient(0,40+barH-fillH,0,40+barH);
+    barGrad.addColorStop(0,'#38bdf8'); barGrad.addColorStop(1,'#0284c7');
+    ctx.fillStyle = barGrad;
+    ctx.beginPath();
+    ctx.roundRect(barX, 40+barH-fillH, barW, fillH, 4);
+    ctx.fill();
+    ctx.fillStyle = '#94a3b8'; ctx.font = '10px Space Grotesk'; ctx.textAlign = 'center';
+    ctx.fillText('P', barX+barW/2, 35);
+    ctx.fillText((atm*100).toFixed(0)+'%', barX+barW/2, H-45);
+
+    // Air molecules (density particles)
+    const numParticles = Math.round(atm * 30);
+    for(let i=0; i<numParticles; i++) {
+      const px = 50 + (i*37+Math.sin(t+i)*3) % (W-120);
+      const py = personY + 10 + (i*19) % (H-personY-60);
+      ctx.fillStyle = `rgba(56,189,248,${0.15+atm*0.3})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 2.5, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 13px Space Grotesk';
+    ctx.fillText(`Altitude: ${alt} km | P = ${P.toFixed(1)} kPa`, W/2, 25);
+    ctx.textAlign = 'left';
+
+    animationFrames['pressure'] = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ===================== SOUND =====================
+function initSound() {
+  const canvas = document.getElementById('sound-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let t = 0;
+
+  function loop() {
+    const freq = +document.getElementById('frequency').value;
+    const amp = +document.getElementById('amplitude').value;
+    const wtype = document.getElementById('wave-type').value;
+    document.getElementById('freq-val').textContent = freq;
+    document.getElementById('amp-val').textContent = amp;
+
+    const lambda = (34300/freq).toFixed(1);
+    const period = (1000/freq).toFixed(2);
+    document.getElementById('s-wavelength').textContent = lambda;
+    document.getElementById('s-period').textContent = period;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+    t += 0.05;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(51,65,85,0.5)'; ctx.lineWidth = 0.5;
+    for(let i=1; i<4; i++) {
+      ctx.beginPath(); ctx.moveTo(40, H*i/4); ctx.lineTo(W-20, H*i/4); ctx.stroke();
+    }
+
+    const midY = H/2;
+    const maxAmp = (H/2 - 60) * amp/100;
+    const cycles = 3;
+    const waveW = W - 60;
+
+    // Draw wave
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    for(let px=0; px<=waveW; px++) {
+      const phase = (px/waveW) * cycles * Math.PI * 2 - t * freq * 0.01;
+      let y;
+      if(wtype === 'sine') y = Math.sin(phase);
+      else if(wtype === 'square') y = Math.sign(Math.sin(phase));
+      else y = (phase % (Math.PI*2)) / Math.PI - 1; // sawtooth
+      const vy = midY + y * maxAmp;
+      if(px===0) ctx.moveTo(40+px, vy);
+      else ctx.lineTo(40+px, vy);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Wavefront circles (sound spreading)
+    for(let r=1; r<=5; r++) {
+      const radius = ((t*40 + r*60) % 300);
+      const alpha = (1 - radius/300) * 0.4;
+      ctx.strokeStyle = `rgba(56,189,248,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(90, H*0.78, radius, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // Labels
+    ctx.fillStyle = '#64748b'; ctx.font = '11px JetBrains Mono'; ctx.textAlign = 'left';
+    ctx.fillText('+A', 42, midY - maxAmp - 4);
+    ctx.fillText('−A', 42, midY + maxAmp + 12);
+    ctx.fillStyle = '#38bdf8'; ctx.textAlign = 'center';
+    ctx.fillText(freq+' Hz  |  λ = '+lambda+' cm', W/2, H-10);
+    ctx.textAlign = 'left';
+
+    animationFrames['sound'] = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function toggleSound() {
+  const btn = document.getElementById('play-sound-btn');
+  if(soundSource) {
+    soundSource.stop(); soundSource = null;
+    btn.textContent = '▶ Play Sound'; return;
+  }
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const freq = +document.getElementById('frequency').value;
+  const amp = +document.getElementById('amplitude').value / 100;
+  const wtype = document.getElementById('wave-type').value;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = wtype; osc.frequency.value = freq;
+  gain.gain.value = amp * 0.3;
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); soundSource = osc;
+  btn.textContent = '⏹ Stop Sound';
+}
+
+// ===================== OPTICS =====================
+function initOptics() {
+  const canvas = document.getElementById('optics-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let t = 0;
+
+  function loop() {
+    const theta1 = +document.getElementById('incident').value * Math.PI / 180;
+    const n2 = +document.getElementById('medium').value;
+    const n1 = 1.0;
+    document.getElementById('inc-val').textContent = document.getElementById('incident').value;
+
+    const sinTheta2 = n1 * Math.sin(theta1) / n2;
+    const tir = sinTheta2 > 1;
+    const theta2 = tir ? null : Math.asin(sinTheta2);
+    const theta2deg = tir ? 'TIR!' : (theta2 * 180 / Math.PI).toFixed(1) + '°';
+
+    document.getElementById('o-refracted').textContent = theta2deg;
+    document.getElementById('o-tir').textContent = tir ? '✓ YES' : 'No';
+    document.getElementById('o-tir').style.color = tir ? '#34d399' : '#64748b';
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+    t += 0.03;
+
+    const interfaceY = H/2;
+    const cx = W/2;
+
+    // Air (top)
+    ctx.fillStyle = 'rgba(14,165,233,0.05)';
+    ctx.fillRect(0, 0, W, interfaceY);
+    ctx.fillStyle = 'rgba(148,163,184,0.5)'; ctx.font = '12px Space Grotesk';
+    ctx.fillText('Air (n₁ = 1.00)', 10, 20);
+
+    // Medium (bottom)
+    const medColor = n2 > 2 ? 'rgba(167,139,250,0.15)' : n2 > 1.4 ? 'rgba(56,189,248,0.12)' : 'rgba(56,189,248,0.06)';
+    ctx.fillStyle = medColor;
+    ctx.fillRect(0, interfaceY, W, H/2);
+    const medName = document.getElementById('medium').options[document.getElementById('medium').selectedIndex].text;
+    ctx.fillStyle = 'rgba(148,163,184,0.5)';
+    ctx.fillText(medName.split('(')[0].trim(), 10, interfaceY + 20);
+
+    // Interface line
+    ctx.strokeStyle = 'rgba(56,189,248,0.4)'; ctx.lineWidth = 1.5; ctx.setLineDash([8,4]);
+    ctx.beginPath(); ctx.moveTo(0, interfaceY); ctx.lineTo(W, interfaceY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Normal line
+    ctx.strokeStyle = 'rgba(148,163,184,0.25)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, interfaceY-120); ctx.lineTo(cx, interfaceY+120); ctx.stroke();
+
+    // Incident ray
+    const rayLen = 160;
+    const ix = cx - Math.sin(theta1) * rayLen;
+    const iy = interfaceY - Math.cos(theta1) * rayLen;
+
+    // Animated pulse on incident ray
+    const pulse = ((t*0.4) % 1);
+    const pix = ix + (cx-ix)*pulse;
+    const piy = iy + (interfaceY-iy)*pulse;
+
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(ix, iy); ctx.lineTo(cx, interfaceY); ctx.stroke();
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath(); ctx.arc(pix, piy, 5, 0, Math.PI*2); ctx.fill();
+
+    // Reflected ray
+    const rx = cx + Math.sin(theta1) * rayLen;
+    const ry = interfaceY - Math.cos(theta1) * rayLen;
+    ctx.strokeStyle = tir ? '#34d399' : 'rgba(251,191,36,0.4)'; ctx.lineWidth = tir ? 2.5 : 1.5;
+    ctx.setLineDash(tir ? [] : [5,3]);
+    ctx.beginPath(); ctx.moveTo(cx, interfaceY); ctx.lineTo(rx, ry); ctx.stroke();
+    ctx.setLineDash([]);
+
+    if(tir) {
+      // Animated pulse on reflected
+      const rpulse = ((t*0.4+0.5) % 1);
+      ctx.fillStyle = '#34d399';
+      ctx.beginPath(); ctx.arc(cx+(rx-cx)*rpulse, interfaceY+(ry-interfaceY)*rpulse, 5, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Refracted ray
+    if(!tir && theta2) {
+      const tx = cx + Math.sin(theta2) * rayLen;
+      const ty = interfaceY + Math.cos(theta2) * rayLen;
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(cx, interfaceY); ctx.lineTo(tx, ty); ctx.stroke();
+      const tpulse = ((t*0.4*n2/n1) % 1);
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath(); ctx.arc(cx+(tx-cx)*tpulse, interfaceY+(ty-interfaceY)*tpulse, 5, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Angle arcs
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+    ctx.beginPath(); ctx.arc(cx, interfaceY, 50, -Math.PI/2, -Math.PI/2+theta1, false); ctx.stroke();
+    ctx.fillStyle = '#fbbf24'; ctx.font = '11px JetBrains Mono'; ctx.textAlign = 'center';
+    ctx.fillText(document.getElementById('incident').value+'°', cx - Math.sin(theta1/2)*60, interfaceY - Math.cos(theta1/2)*60);
+
+    if(!tir && theta2) {
+      ctx.strokeStyle = '#38bdf8';
+      ctx.beginPath(); ctx.arc(cx, interfaceY, 50, Math.PI/2-theta2, Math.PI/2, false); ctx.stroke();
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText((theta2*180/Math.PI).toFixed(1)+'°', cx + Math.sin(theta2/2)*65, interfaceY + Math.cos(theta2/2)*65);
+    }
+
+    ctx.setLineDash([]);
+    ctx.textAlign = 'left';
+
+    if(tir) {
+      ctx.fillStyle = '#34d399'; ctx.font = 'bold 13px Space Grotesk'; ctx.textAlign = 'center';
+      ctx.fillText('⚡ Total Internal Reflection! No light passes through.', W/2, H-15);
+    }
+    ctx.textAlign = 'left';
+
+    animationFrames['optics'] = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ===================== HEART =====================
+function initHeart() {
+  const canvas = document.getElementById('heart-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let t = 0;
+
+  function loop() {
+    const bpm = +document.getElementById('heart-rate').value;
+    document.getElementById('hr-val').textContent = bpm;
+    document.getElementById('h-bpm').textContent = bpm;
+    document.getElementById('h-daily').textContent = (bpm*60*24).toLocaleString();
+    document.getElementById('h-period').textContent = Math.round(60000/bpm);
+
+    const status = bpm < 60 ? 'Bradycardia' : bpm <= 100 ? 'Normal' : bpm <= 150 ? 'Tachycardia' : 'Very Fast';
+    document.getElementById('h-status').textContent = status;
+
+    const beatFreq = bpm / 60;
+    t += 0.016;
+    const phase = (t * beatFreq * Math.PI * 2) % (Math.PI * 2);
+    const beat = Math.max(0, Math.sin(phase));
+    const scale = 1 + beat * 0.08;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+
+    const cx = W/2, cy = H/2;
+
+    // Background glow
+    const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 150);
+    grd.addColorStop(0, `rgba(239,68,68,${0.05+beat*0.08})`);
+    grd.addColorStop(1, 'transparent');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,W,H);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+
+    // Draw heart shape
+    function heartPath() {
+      ctx.beginPath();
+      ctx.moveTo(0, -20);
+      ctx.bezierCurveTo(-90, -90, -160, 0, 0, 80);
+      ctx.bezierCurveTo(160, 0, 90, -90, 0, -20);
+    }
+
+    // Heart shadow/glow
+    ctx.shadowColor = `rgba(239,68,68,${0.4+beat*0.4})`;
+    ctx.shadowBlur = 30;
+    heartPath();
+    ctx.fillStyle = `rgb(${Math.round(127+beat*50)},${Math.round(29+beat*10)},${Math.round(29+beat*10)})`;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Chambers
+    // RA (top-left)
+    ctx.fillStyle = `rgba(239,68,68,${0.3+beat*0.2})`;
+    ctx.beginPath(); ctx.ellipse(-50, -30, 35, 28, -0.3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fca5a5'; ctx.font = '9px Space Grotesk'; ctx.textAlign = 'center';
+    ctx.fillText('RA', -50, -26);
+
+    // LA (top-right)
+    ctx.fillStyle = `rgba(220,38,38,${0.3+beat*0.2})`;
+    ctx.beginPath(); ctx.ellipse(50, -30, 35, 28, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fca5a5';
+    ctx.fillText('LA', 50, -26);
+
+    // RV (bottom-left)
+    ctx.fillStyle = `rgba(239,68,68,${0.2+beat*0.3})`;
+    ctx.beginPath(); ctx.ellipse(-45, 25, 40, 38, -0.2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fca5a5';
+    ctx.fillText('RV', -45, 29);
+
+    // LV (bottom-right)
+    ctx.fillStyle = `rgba(185,28,28,${0.3+beat*0.35})`;
+    ctx.beginPath(); ctx.ellipse(40, 25, 42, 40, 0.2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fca5a5';
+    ctx.fillText('LV', 40, 29);
+
+    // Septum
+    ctx.strokeStyle = 'rgba(248,113,113,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, -60); ctx.lineTo(0, 60); ctx.stroke();
+
+    ctx.restore();
+
+    // Blood flow arrows - animated
+    const arrowPhase = (t * beatFreq * 2) % 1;
+    // To lungs
+    drawArrow(ctx, cx-90*scale, cy-40*scale, cx-130, cy-100, `rgba(56,189,248,${arrowPhase>0.5?arrowPhase-0.5:arrowPhase})`, '→ Lungs');
+    // From lungs
+    drawArrow(ctx, cx+70*scale, cy-40*scale, cx+130, cy-100, `rgba(239,68,68,${arrowPhase>0.5?arrowPhase-0.5:arrowPhase})`, '← Lungs');
+    // To body
+    drawArrow(ctx, cx+80*scale, cy+30*scale, cx+140, cy+80, `rgba(239,68,68,${beat*0.8})`, '→ Body');
+    // From body
+    drawArrow(ctx, cx-80*scale, cy+30*scale, cx-140, cy+80, `rgba(56,189,248,${beat*0.8})`, '← Body');
+
+    // ECG strip at bottom
+    drawECG(ctx, W, H, t, bpm);
+
+    animationFrames['heart'] = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, col, label) {
+  ctx.strokeStyle = col; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.fillStyle = col; ctx.font = '10px Space Grotesk'; ctx.textAlign = 'center';
+  ctx.fillText(label, (x1+x2)/2, (y1+y2)/2-5);
+}
+
+function drawECG(ctx, W, H, t, bpm) {
+  const y0 = H - 50; const ecgW = W - 80;
+  ctx.strokeStyle = '#334155'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(40, y0); ctx.lineTo(W-40, y0); ctx.stroke();
+
+  ctx.strokeStyle = '#34d399'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for(let px=0; px<=ecgW; px++) {
+    const phase = ((px/ecgW)*4 + t*(bpm/60)*4) % 4;
+    let y;
+    if(phase < 0.1) y = y0;
+    else if(phase < 0.15) y = y0 - 8;
+    else if(phase < 0.2) y = y0 + 5;
+    else if(phase < 0.3) y = y0 - 28;
+    else if(phase < 0.4) y = y0 + 10;
+    else if(phase < 0.55) y = y0 - 15;
+    else y = y0;
+    if(px===0) ctx.moveTo(40+px, y);
+    else ctx.lineTo(40+px, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#64748b'; ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'left';
+  ctx.fillText('ECG', 42, H-55);
+}
+
+// ===================== ACIDS & BASES =====================
+function initAcids() {
+  const canvas = document.getElementById('acids-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let bubbles = [];
+  let t = 0;
+
+  for(let i=0; i<20; i++) bubbles.push({ x: Math.random()*200+W/2-120, y: Math.random()*200+100, r: 3+Math.random()*6, vy: -0.5-Math.random(), vx: (Math.random()-0.5)*0.3 });
+
+  function loop() {
+    const acid = +document.getElementById('acid-amount').value;
+    const base = +document.getElementById('base-amount').value;
+    const indicator = document.getElementById('indicator').value;
+    document.getElementById('acid-val').textContent = acid;
+    document.getElementById('base-val').textContent = base;
+    t += 0.02;
+
+    const total = acid + base;
+    let ph;
+    if(total === 0) ph = 7;
+    else ph = 7 + (base-acid)/total * 7;
+    ph = Math.max(0, Math.min(14, ph));
+
+    document.getElementById('a-ph').textContent = ph.toFixed(1);
+    document.getElementById('a-type').textContent = ph < 6.5 ? 'Acidic' : ph > 7.5 ? 'Basic' : 'Neutral';
+
+    // Color based on indicator and pH
+    let solColor;
+    if(indicator === 'litmus') {
+      if(ph < 6.5) solColor = `rgba(239,68,68,${0.4+0.3*(6.5-ph)/6.5})`;
+      else if(ph > 7.5) solColor = `rgba(59,130,246,${0.4+0.3*(ph-7.5)/6.5})`;
+      else solColor = 'rgba(168,85,247,0.4)';
+    } else if(indicator === 'turmeric') {
+      if(ph > 8) solColor = `rgba(239,68,68,${0.5+(ph-8)/6*0.3})`;
+      else solColor = `rgba(251,191,36,0.5)`;
+    } else { // phenol
+      if(ph > 8.2) solColor = `rgba(236,72,153,${0.3+(ph-8.2)/5.8*0.5})`;
+      else solColor = 'rgba(226,232,240,0.15)';
+    }
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+
+    // pH scale bar
+    const scaleX = 30, scaleY = 40, scaleH = H - 100;
+    const phGrad = ctx.createLinearGradient(0, scaleY, 0, scaleY+scaleH);
+    phGrad.addColorStop(0,'#ef4444');
+    phGrad.addColorStop(0.35,'#f59e0b');
+    phGrad.addColorStop(0.5,'#34d399');
+    phGrad.addColorStop(0.65,'#3b82f6');
+    phGrad.addColorStop(1,'#6d28d9');
+    ctx.fillStyle = phGrad;
+    ctx.roundRect(scaleX, scaleY, 18, scaleH, 4); ctx.fill();
+
+    // pH indicator line
+    const indicY = scaleY + (ph/14)*scaleH;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(scaleX-4, indicY); ctx.lineTo(scaleX+22, indicY); ctx.stroke();
+    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 11px JetBrains Mono'; ctx.textAlign = 'left';
+    ctx.fillText(ph.toFixed(1), scaleX+26, indicY+4);
+
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(p => {
+      const py = scaleY + (p/14)*scaleH;
+      ctx.fillStyle = 'rgba(148,163,184,0.5)'; ctx.font = '9px JetBrains Mono';
+      ctx.fillText(p, scaleX-14, py+3);
+    });
+
+    // Beaker
+    const bx = W/2 - 100, by = 60, bw = 200, bh = 280;
+    ctx.strokeStyle = 'rgba(148,163,184,0.4)'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(bx+10, by);
+    ctx.lineTo(bx, by+bh);
+    ctx.lineTo(bx+bw, by+bh);
+    ctx.lineTo(bx+bw-10, by);
+    ctx.stroke();
+
+    // Spout
+    ctx.beginPath();
+    ctx.moveTo(bx+bw-10, by+20);
+    ctx.lineTo(bx+bw+20, by+10);
+    ctx.stroke();
+
+    // Solution fill
+    const fillLevel = Math.min(0.85, total/100 * 0.75 + 0.1);
+    const fillY = by + bh - bh*fillLevel;
+    ctx.fillStyle = solColor;
+    ctx.beginPath();
+    ctx.moveTo(bx+3, fillY);
+    ctx.lineTo(bx+3, by+bh-2);
+    ctx.lineTo(bx+bw-3, by+bh-2);
+    ctx.lineTo(bx+bw-3, fillY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Bubbles (neutralization reaction)
+    if(Math.abs(ph-7) < 2 && acid > 10 && base > 10) {
+      bubbles.forEach(b => {
+        b.y += b.vy; b.x += b.vx;
+        if(b.y < fillY - 10) { b.y = by+bh-5; b.x = bx+10+Math.random()*(bw-20); }
+        if(b.y > fillY) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.stroke();
+        }
+      });
+    }
+
+    // Surface wave
+    ctx.strokeStyle = `rgba(255,255,255,0.2)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for(let px=0; px<=bw-6; px++) {
+      const wy = fillY + Math.sin(px*0.1 + t)*2;
+      if(px===0) ctx.moveTo(bx+3+px, wy);
+      else ctx.lineTo(bx+3+px, wy);
+    }
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 13px Space Grotesk'; ctx.textAlign = 'center';
+    ctx.fillText('pH = '+ph.toFixed(1)+' — '+document.getElementById('a-type').textContent, W/2, H-15);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '11px Space Grotesk';
+    ctx.fillText('HCl: '+acid+'mL | NaOH: '+base+'mL', W/2, H-30);
+    ctx.textAlign = 'left';
+
+    animationFrames['acids'] = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ===================== PENDULUM =====================
+function initPendulum() {
+  const canvas = document.getElementById('pendulum-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let t = 0;
+
+  function loop() {
+    const L = +document.getElementById('pend-length').value / 100; // metres
+    const mass = +document.getElementById('pend-mass').value;
+    const theta0 = +document.getElementById('pend-angle').value * Math.PI / 180;
+    document.getElementById('plen-val').textContent = Math.round(L*100);
+    document.getElementById('pmass-val').textContent = mass;
+    document.getElementById('pangle-val').textContent = Math.round(theta0*180/Math.PI);
+
+    const g = 9.8;
+    const period = 2 * Math.PI * Math.sqrt(L/g);
+    const freq = 1/period;
+    document.getElementById('p-period2').textContent = period.toFixed(2);
+    document.getElementById('p-freq2').textContent = freq.toFixed(2);
+
+    t += 0.016;
+    const theta = theta0 * Math.cos(2*Math.PI*t/period);
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+
+    const pivotX = W/2, pivotY = 60;
+    const rodLen = Math.min(280, L*200 + 60);
+    const ballX = pivotX + Math.sin(theta) * rodLen;
+    const ballY = pivotY + Math.cos(theta) * rodLen;
+    const ballR = 8 + Math.min(15, mass/200);
+
+    // Trail
+    for(let i=1; i<=20; i++) {
+      const tt = t - i*0.012;
+      const th = theta0 * Math.cos(2*Math.PI*tt/period);
+      const tx = pivotX + Math.sin(th)*rodLen;
+      const ty = pivotY + Math.cos(th)*rodLen;
+      ctx.fillStyle = `rgba(167,139,250,${0.03*(20-i)})`;
+      ctx.beginPath(); ctx.arc(tx, ty, ballR, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Pivot
+    ctx.fillStyle = '#334155';
+    ctx.beginPath(); ctx.arc(pivotX, pivotY, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 2;
+    ctx.fillRect(pivotX-30, pivotY-12, 60, 12);
+
+    // Rod
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(ballX, ballY); ctx.stroke();
+
+    // Ball
+    const ballGrad = ctx.createRadialGradient(ballX-ballR*0.3, ballY-ballR*0.3, 0, ballX, ballY, ballR);
+    ballGrad.addColorStop(0, '#c4b5fd');
+    ballGrad.addColorStop(1, '#7c3aed');
+    ctx.fillStyle = ballGrad;
+    ctx.shadowColor = '#a78bfa';
+    ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.arc(ballX, ballY, ballR, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Angle arc
+    ctx.strokeStyle = 'rgba(251,191,36,0.4)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.arc(pivotX, pivotY, 50, Math.PI/2-theta, Math.PI/2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Velocity arrow
+    const vtheta = -theta0 * (2*Math.PI/period) * Math.sin(2*Math.PI*t/period);
+    const vscale = 30;
+    ctx.strokeStyle = '#34d399'; ctx.lineWidth = 2;
+    const vx = -Math.sin(theta)*vtheta*vscale;
+    const vy = -Math.cos(theta)*vtheta*vscale;
+    if(Math.abs(vtheta) > 0.01) {
+      ctx.beginPath(); ctx.moveTo(ballX, ballY); ctx.lineTo(ballX+vx, ballY+vy); ctx.stroke();
+    }
+
+    // Ground line
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+    ctx.setLineDash([5,5]);
+    ctx.beginPath(); ctx.moveTo(40, pivotY+rodLen); ctx.lineTo(W-40, pivotY+rodLen); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Info
+    ctx.fillStyle = '#64748b'; ctx.font = '11px JetBrains Mono'; ctx.textAlign = 'center';
+    ctx.fillText(`T = 2π√(${L.toFixed(2)}/9.8) = ${period.toFixed(2)} s`, W/2, H-15);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText(`θ = ${(theta*180/Math.PI).toFixed(1)}°  |  mass doesn't affect T!`, W/2, H-32);
+    ctx.textAlign = 'left';
+
+    animationFrames['pendulum'] = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ===================== PROJECTILE =====================
+let projAnimating = false;
+let projT = 0, projPath = [];
+
+function launchProjectile() {
+  projAnimating = false;
+  projT = 0; projPath = [];
+  cancelAnimationFrame(animationFrames['proj_anim']);
+  projAnimating = true;
+}
+
+function initProjectile() {
+  const canvas = document.getElementById('projectile-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = 420 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = canvas.offsetWidth, H = 420;
+  let t = 0;
+  projAnimating = false;
+
+  function loop() {
+    const angle = +document.getElementById('launch-angle').value * Math.PI/180;
+    const v0 = +document.getElementById('launch-speed').value;
+    const g = +document.getElementById('gravity').value;
+    document.getElementById('ang-val').textContent = document.getElementById('launch-angle').value;
+    document.getElementById('spd-val').textContent = v0;
+    document.getElementById('grav-val').textContent = g;
+
+    const vx = v0 * Math.cos(angle);
+    const vy = v0 * Math.sin(angle);
+    const tFlight = 2*vy/g;
+    const range = vx * tFlight;
+    const maxH = vy*vy/(2*g);
+
+    document.getElementById('pr-range').textContent = range.toFixed(1);
+    document.getElementById('pr-height').textContent = maxH.toFixed(1);
+    document.getElementById('pr-time').textContent = tFlight.toFixed(2);
+    document.getElementById('pr-vx').textContent = vx.toFixed(1);
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0,0,W,H);
+
+    const groundY = H - 60;
+    const originX = 60;
+    const scaleX = (W-100)/Math.max(range, 1);
+    const scaleY = (groundY-80)/Math.max(maxH, 1);
+    const scale = Math.min(scaleX, scaleY);
+
+    // Ground
+    ctx.strokeStyle = '#166534'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
+    ctx.fillStyle = '#14532d'; ctx.fillRect(0, groundY, W, H-groundY);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(51,65,85,0.3)'; ctx.lineWidth = 0.5;
+    for(let y=groundY; y>80; y-=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    for(let x=originX; x<W; x+=60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+
+    // Trajectory path
+    ctx.strokeStyle = 'rgba(56,189,248,0.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    for(let px=0; px<=500; px++) {
+      const tt = (px/500)*tFlight;
+      const px2 = originX + vx*tt*scale;
+      const py = groundY - (vy*tt - 0.5*g*tt*tt)*scale;
+      if(px===0) ctx.moveTo(px2, py);
+      else ctx.lineTo(px2, py);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Animated projectile
+    if(projAnimating) {
+      projT += 0.016;
+      if(projT >= tFlight) { projT = 0; projPath = []; projAnimating = false; }
+      else {
+        const px = originX + vx*projT*scale;
+        const py = groundY - (vy*projT - 0.5*g*projT*projT)*scale;
+        projPath.push([px, py]);
+
+        // Trail
+        for(let i=0; i<projPath.length; i++) {
+          const alpha = (i/projPath.length)*0.6;
+          ctx.fillStyle = `rgba(251,191,36,${alpha})`;
+          ctx.beginPath(); ctx.arc(projPath[i][0], projPath[i][1], 3, 0, Math.PI*2); ctx.fill();
+        }
+
+        // Ball
+        ctx.fillStyle = '#fbbf24';
+        ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 15;
+        ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Velocity components
+        const vcx = vx * scale * 0.06;
+        const vcy = -(vy - g*projT) * scale * 0.06;
+        ctx.strokeStyle = '#34d399'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+vcx, py); ctx.stroke(); // Vx
+        ctx.strokeStyle = '#f87171';
+        ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px, py+vcy); ctx.stroke(); // Vy
+      }
+    }
+
+    // Launch arrow
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+    const arrowLen = 40;
+    ctx.beginPath();
+    ctx.moveTo(originX, groundY);
+    ctx.lineTo(originX + Math.cos(angle)*arrowLen, groundY - Math.sin(angle)*arrowLen);
+    ctx.stroke();
+
+    // Cannon
+    ctx.fillStyle = '#475569';
+    ctx.beginPath(); ctx.arc(originX, groundY, 12, 0, Math.PI*2); ctx.fill();
+
+    // Max height label
+    if(projAnimating && projT < tFlight) {
+      const peakT = vy/g;
+      const peakX = originX + vx*peakT*scale;
+      const peakY = groundY - maxH*scale;
+      ctx.strokeStyle = 'rgba(167,139,250,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(peakX, peakY); ctx.lineTo(peakX, groundY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#a78bfa'; ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'center';
+      ctx.fillText('H='+maxH.toFixed(1)+'m', peakX, peakY-8);
+    }
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#64748b'; ctx.font = '11px JetBrains Mono';
+    ctx.fillText(`θ=${document.getElementById('launch-angle').value}°  v₀=${v0}m/s  g=${g}m/s²`, 10, 20);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('Range: '+range.toFixed(1)+'m  |  Click 🚀 Launch!', 10, H-15);
+
+    animationFrames['projectile'] = requestAnimationFrame(loop);
+    if(projAnimating) animationFrames['proj_anim'] = animationFrames['projectile'];
+  }
+  loop();
+}
+
+// Start home
+showHome();
+</script>
+</body>
+</html>
